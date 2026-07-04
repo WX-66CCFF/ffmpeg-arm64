@@ -1,0 +1,53 @@
+name: Build FFmpeg ARM64 with V4L2 Request (Docker)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout FFmpeg source
+        uses: actions/checkout@v4
+        with:
+          repository: FFmpeg/FFmpeg
+          path: ffmpeg-src
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Build inside ARM64 Docker container
+        run: |
+          docker run --rm \
+            --platform linux/arm64 \
+            -v ${{ github.workspace }}/ffmpeg-src:/ffmpeg-src \
+            -v ${{ github.workspace }}/output:/output \
+            arm64v8/ubuntu:22.04 \
+            bash -c "
+              apt update &&
+              apt install -y build-essential pkg-config git yasm \
+                libdrm-dev libudev-dev libx264-dev libx265-dev \
+                libv4l-dev &&
+              cd /ffmpeg-src &&
+              mkdir build && cd build &&
+              ../configure \
+                --prefix=/opt/ffmpeg \
+                --enable-v4l2-request \
+                --enable-libdrm \
+                --enable-libudev \
+                --enable-libx264 \
+                --enable-libx265 \
+                --enable-gpl \
+                --enable-nonfree \
+                --enable-shared &&
+              make -j\$(nproc) &&
+              make install DESTDIR=/output &&
+              cd /output &&
+              tar czf /output/ffmpeg-arm64-v4l2.tar.gz opt/
+            "
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-arm64-v4l2
+          path: output/ffmpeg-arm64-v4l2.tar.gz
