@@ -8,13 +8,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout FFmpeg source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: FFmpeg/FFmpeg
           path: ffmpeg-src
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@v4
 
       - name: Build inside ARM64 Docker container
         run: |
@@ -24,30 +24,32 @@ jobs:
             -v ${{ github.workspace }}/output:/output \
             arm64v8/ubuntu:22.04 \
             bash -c "
+              export DEBIAN_FRONTEND=noninteractive &&
               apt update &&
               apt install -y build-essential pkg-config git yasm \
-                libdrm-dev libudev-dev libx264-dev libx265-dev \
-                libv4l-dev &&
+                libdrm-dev libudev-dev &&
               cd /ffmpeg-src &&
-              mkdir build && cd build &&
-              ../configure \
+              # 检查是否支持 --enable-v4l2-request（旧版需要）
+              V4L2_OPT=''
+              if ../configure --help | grep -q '\-\-enable-v4l2-request'; then
+                V4L2_OPT='--enable-v4l2-request'
+              fi
+              ./configure \
                 --prefix=/opt/ffmpeg \
-                --enable-v4l2-request \
+                $V4L2_OPT \
                 --enable-libdrm \
                 --enable-libudev \
-                --enable-libx264 \
-                --enable-libx265 \
                 --enable-gpl \
                 --enable-nonfree \
                 --enable-shared &&
-              make -j\$(nproc) &&
+              make -j1 &&
               make install DESTDIR=/output &&
               cd /output &&
-              tar czf /output/ffmpeg-arm64-v4l2.tar.gz opt/
+              tar czf ffmpeg-arm64-v4l2.tar.gz opt/
             "
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ffmpeg-arm64-v4l2
           path: output/ffmpeg-arm64-v4l2.tar.gz
