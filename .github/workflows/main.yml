@@ -1,0 +1,72 @@
+name: Build FFmpeg for ARM64 with V4L2 Request
+
+on:
+  workflow_dispatch:          # 允许手动触发
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout FFmpeg source
+        uses: actions/checkout@v4
+        with:
+          repository: FFmpeg/FFmpeg
+          path: ffmpeg-src
+          ref: master
+
+      - name: Install cross-compilation toolchain
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            gcc-aarch64-linux-gnu \
+            g++-aarch64-linux-gnu \
+            pkg-config-aarch64-linux-gnu \
+            libc6-dev-arm64-cross \
+            libdrm-dev:arm64 \
+            libudev-dev:arm64 \
+            libx264-dev:arm64 \
+            libx265-dev:arm64 \
+            libv4l-dev:arm64 \
+            yasm \
+            make
+
+      - name: Configure FFmpeg (cross-compile)
+        run: |
+          cd ffmpeg-src
+          mkdir build && cd build
+          ../configure \
+            --arch=arm64 \
+            --cross-prefix=aarch64-linux-gnu- \
+            --target-os=linux \
+            --enable-cross-compile \
+            --prefix=/opt/ffmpeg \
+            --enable-v4l2-request \
+            --enable-libdrm \
+            --enable-libudev \
+            --enable-libx264 \
+            --enable-libx265 \
+            --enable-gpl \
+            --enable-nonfree \
+            --enable-shared \
+            --disable-stripping
+
+      - name: Build FFmpeg
+        run: |
+          cd ffmpeg-src/build
+          make -j$(nproc)
+
+      - name: Install to temporary directory
+        run: |
+          cd ffmpeg-src/build
+          make install DESTDIR=/tmp/ffmpeg-install
+
+      - name: Package as tar.gz
+        run: |
+          cd /tmp/ffmpeg-install
+          tar czf /tmp/ffmpeg-arm64-v4l2.tar.gz opt/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ffmpeg-arm64-v4l2
+          path: /tmp/ffmpeg-arm64-v4l2.tar.gz
