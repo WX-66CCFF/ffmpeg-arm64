@@ -27,18 +27,11 @@ jobs:
               export DEBIAN_FRONTEND=noninteractive &&
               apt update &&
               apt install -y build-essential pkg-config git yasm \
-                libdrm-dev libudev-dev &&
+                libdrm-dev &&
               cd /ffmpeg-src &&
-              # 检查是否支持 --enable-v4l2-request（旧版需要）
-              V4L2_OPT=''
-              if ../configure --help | grep -q '\-\-enable-v4l2-request'; then
-                V4L2_OPT='--enable-v4l2-request'
-              fi
               ./configure \
                 --prefix=/opt/ffmpeg \
-                $V4L2_OPT \
                 --enable-libdrm \
-                --enable-libudev \
                 --enable-gpl \
                 --enable-nonfree \
                 --enable-shared &&
