@@ -1,29 +1,27 @@
 name: Native Build Static FFmpeg (v4l2-request) for Armbian
 
 on:
-  workflow_dispatch: # 允许手动触发
+  workflow_dispatch:
 
 jobs:
   build:
-    # 核心改变：直接使用原生的 ARM64 环境，享受 4 核 16G 的原生编译性能！
     runs-on: ubuntu-24.04-arm
     
     steps:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          # 直接安装本机的编译工具和依赖，不再需要跨架构支持
           sudo apt-get install -y build-essential libdrm-dev libudev-dev pkg-config
 
       - name: Checkout FFmpeg Source
         uses: actions/checkout@v4
         with:
-          repository: FFmpeg/FFmpeg
-          ref: release/7.0 # 建议使用 7.0 甚至 7.1 分支，对 v4l2-request 的支持更完善
+          # 核心修复：将源码仓库替换为包含无状态驱动补丁的社区维护版
+          repository: Kwiboo/FFmpeg
+          ref: v4l2request-v3
 
       - name: Configure FFmpeg (Static Build)
         run: |
-          # 去除了所有交叉编译前缀，添加了纯静态编译参数
           ./configure \
             --arch=aarch64 \
             --target-os=linux \
@@ -45,7 +43,6 @@ jobs:
       - name: Prepare Artifacts
         run: |
           mkdir -p output
-          # 静态编译下，这两个二进制文件包含了所有所需的依赖
           cp ffmpeg ffprobe output/
 
       - name: Upload FFmpeg Artifacts
