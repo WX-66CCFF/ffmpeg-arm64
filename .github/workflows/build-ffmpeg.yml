@@ -5,7 +5,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04-arm   # 使用原生 ARM64 runner
+    runs-on: ubuntu-22.04-arm
     steps:
       - name: Install dependencies
         run: |
@@ -22,21 +22,16 @@ jobs:
       - name: Configure and build FFmpeg
         run: |
           cd ffmpeg-src
-          # 动态检测 --enable-v4l2-request 是否存在（新版可能不需要）
-          V4L2_OPT=""
-          if ./configure --help | grep -q '\-\-enable-v4l2-request'; then
-            V4L2_OPT="--enable-v4l2-request"
-          fi
+          # 强制启用 v4l2-request，无论新版是否默认开启
           ./configure \
             --prefix=/opt/ffmpeg \
-            $V4L2_OPT \
+            --enable-v4l2-request \
             --enable-libdrm \
             --enable-gpl \
             --enable-nonfree \
             --enable-shared
           make -j$(nproc)
           sudo make install
-          # 打包编译结果
           cd /opt
           tar czf ffmpeg-arm64-v4l2.tar.gz ffmpeg/
 
