@@ -27,15 +27,20 @@ jobs:
               export DEBIAN_FRONTEND=noninteractive &&
               apt update &&
               apt install -y build-essential pkg-config git yasm \
-                libdrm-dev &&
+                libdrm-dev libv4l-dev linux-libc-dev &&
               cd /ffmpeg-src &&
+              V4L2_OPT=''
+              if ./configure --help | grep -q '\-\-enable-v4l2-request'; then
+                V4L2_OPT='--enable-v4l2-request'
+              fi
               ./configure \
                 --prefix=/opt/ffmpeg \
+                $V4L2_OPT \
                 --enable-libdrm \
                 --enable-gpl \
                 --enable-nonfree \
                 --enable-shared &&
-              make -j1 &&
+              make -j\$(nproc) &&
               make install DESTDIR=/output &&
               cd /output &&
               tar czf ffmpeg-arm64-v4l2.tar.gz opt/
