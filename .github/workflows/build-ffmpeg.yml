@@ -5,13 +5,13 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04-arm
+    runs-on: ubuntu-22.04-arm   # 原生 ARM64
     steps:
       - name: Install dependencies
         run: |
           sudo apt update
           sudo apt install -y build-essential pkg-config git yasm \
-            libdrm-dev libv4l-dev linux-libc-dev
+            libdrm-dev libv4l-dev linux-libc-dev libudev-dev
 
       - name: Checkout FFmpeg source
         uses: actions/checkout@v5
@@ -22,10 +22,9 @@ jobs:
       - name: Configure and build FFmpeg
         run: |
           cd ffmpeg-src
-          # 强制启用 v4l2-request，无论新版是否默认开启
+          # 不再需要 --enable-v4l2-request，自动检测
           ./configure \
             --prefix=/opt/ffmpeg \
-            --enable-v4l2-request \
             --enable-libdrm \
             --enable-gpl \
             --enable-nonfree \
