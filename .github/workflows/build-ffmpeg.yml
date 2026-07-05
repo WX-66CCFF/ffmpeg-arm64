@@ -16,9 +16,9 @@ jobs:
       - name: Checkout FFmpeg Source
         uses: actions/checkout@v4
         with:
-          # 核心修复：将源码仓库替换为包含无状态驱动补丁的社区维护版
-          repository: Kwiboo/FFmpeg
-          ref: v4l2request-v3
+          # 核心修复：切换到全志 Cedrus 官方维护者 Jernej 的仓库，使用适配 FFmpeg 7.1 的无状态分支
+          repository: jernejsk/FFmpeg
+          ref: v4l2-request-n7.1
 
       - name: Configure FFmpeg (Static Build)
         run: |
