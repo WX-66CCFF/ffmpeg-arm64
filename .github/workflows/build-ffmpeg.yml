@@ -1,41 +1,60 @@
-name: Build FFmpeg ARM64 with V4L2 Request (Native)
+name: Cross-compile FFmpeg (v4l2-request) for Armbian
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # 允许在 Actions 页面手动触发
 
 jobs:
   build:
-    runs-on: ubuntu-22.04-arm   # 原生 ARM64
+    runs-on: ubuntu-22.04
+    
     steps:
-      - name: Install dependencies
+      - name: Set up arm64 cross-compilation environment
         run: |
-          sudo apt update
-          sudo apt install -y build-essential pkg-config git yasm \
-            libdrm-dev libv4l-dev linux-libc-dev libudev-dev
+          sudo dpkg --add-architecture arm64
+          sudo apt-get update
+          # 安装交叉编译工具链
+          sudo apt-get install -y crossbuild-essential-arm64
+          # 安装 arm64 架构的依赖库，这是 v4l2-request 必须的
+          sudo apt-get install -y libdrm-dev:arm64 libudev-dev:arm64 pkg-config-aarch64-linux-gnu
 
-      - name: Checkout FFmpeg source
-        uses: actions/checkout@v5
+      - name: Checkout FFmpeg Source
+        uses: actions/checkout@v4
         with:
           repository: FFmpeg/FFmpeg
-          path: ffmpeg-src
+          ref: release/7.0 # 使用较新的稳定分支，确保包含完善的 v4l2-request 支持
 
-      - name: Configure and build FFmpeg
+      - name: Configure FFmpeg
         run: |
-          cd ffmpeg-src
-          # 不再需要 --enable-v4l2-request，自动检测
+          # 告诉 pkg-config 去寻找 arm64 的库而不是宿主机的
+          export PKG_CONFIG=aarch64-linux-gnu-pkg-config
+          
           ./configure \
-            --prefix=/opt/ffmpeg \
+            --enable-cross-compile \
+            --cross-prefix=aarch64-linux-gnu- \
+            --arch=aarch64 \
+            --target-os=linux \
+            --enable-v4l2-request \
             --enable-libdrm \
+            --enable-libudev \
             --enable-gpl \
             --enable-nonfree \
-            --enable-shared
-          make -j$(nproc)
-          sudo make install
-          cd /opt
-          tar czf ffmpeg-arm64-v4l2.tar.gz ffmpeg/
+            --disable-doc \
+            --disable-static \
+            --enable-shared \
+            --prefix=/opt/ffmpeg-custom
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v5
+      - name: Compile FFmpeg
+        # 使用 Actions 服务器的所有核心进行极速编译
+        run: make -j$(nproc)
+
+      - name: Prepare Artifacts
+        run: |
+          mkdir -p output/lib
+          cp ffmpeg ffprobe output/
+          # 如果依赖了特殊的动态库，可以稍后在这打包，这里先打包主程序
+
+      - name: Upload FFmpeg Artifacts
+        uses: actions/upload-artifact@v4
         with:
-          name: ffmpeg-arm64-v4l2
-          path: /opt/ffmpeg-arm64-v4l2.tar.gz
+          name: ffmpeg-arm64-v4l2request
+          path: output/
