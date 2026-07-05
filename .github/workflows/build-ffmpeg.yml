@@ -1,53 +1,47 @@
-name: Build FFmpeg ARM64 with V4L2 Request (Docker)
+name: Build FFmpeg ARM64 with V4L2 Request (Native)
 
 on:
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04-arm   # 使用原生 ARM64 runner
     steps:
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential pkg-config git yasm \
+            libdrm-dev libv4l-dev linux-libc-dev
+
       - name: Checkout FFmpeg source
         uses: actions/checkout@v5
         with:
           repository: FFmpeg/FFmpeg
           path: ffmpeg-src
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
-
-      - name: Build inside ARM64 Docker container
+      - name: Configure and build FFmpeg
         run: |
-          docker run --rm \
-            --platform linux/arm64 \
-            -v ${{ github.workspace }}/ffmpeg-src:/ffmpeg-src \
-            -v ${{ github.workspace }}/output:/output \
-            arm64v8/ubuntu:22.04 \
-            bash -c "
-              export DEBIAN_FRONTEND=noninteractive &&
-              apt update &&
-              apt install -y build-essential pkg-config git yasm \
-                libdrm-dev libv4l-dev linux-libc-dev &&
-              cd /ffmpeg-src &&
-              V4L2_OPT=''
-              if ./configure --help | grep -q '\-\-enable-v4l2-request'; then
-                V4L2_OPT='--enable-v4l2-request'
-              fi
-              ./configure \
-                --prefix=/opt/ffmpeg \
-                $V4L2_OPT \
-                --enable-libdrm \
-                --enable-gpl \
-                --enable-nonfree \
-                --enable-shared &&
-              make -j\$(nproc) &&
-              make install DESTDIR=/output &&
-              cd /output &&
-              tar czf ffmpeg-arm64-v4l2.tar.gz opt/
-            "
+          cd ffmpeg-src
+          # 动态检测 --enable-v4l2-request 是否存在（新版可能不需要）
+          V4L2_OPT=""
+          if ./configure --help | grep -q '\-\-enable-v4l2-request'; then
+            V4L2_OPT="--enable-v4l2-request"
+          fi
+          ./configure \
+            --prefix=/opt/ffmpeg \
+            $V4L2_OPT \
+            --enable-libdrm \
+            --enable-gpl \
+            --enable-nonfree \
+            --enable-shared
+          make -j$(nproc)
+          sudo make install
+          # 打包编译结果
+          cd /opt
+          tar czf ffmpeg-arm64-v4l2.tar.gz ffmpeg/
 
       - name: Upload artifact
         uses: actions/upload-artifact@v5
         with:
           name: ffmpeg-arm64-v4l2
-          path: output/ffmpeg-arm64-v4l2.tar.gz
+          path: /opt/ffmpeg-arm64-v4l2.tar.gz
